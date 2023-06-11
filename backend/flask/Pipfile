@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+flask = "*"
+pypdf2 = "*"
+transformers = "*"
+torch = "*"
+torchvision = "*"
+torchaudio = "*"
+flask-cors = "*"
+nltk = "*"
+spacy = "*"
+wordsegment = "*"
+
+[dev-packages]
+
+[requires]
+python_full_version = "3.11"
