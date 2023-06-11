@@ -22,7 +22,7 @@ def download_pdf(title ,driver):
     for index, link in enumerate(pdf_links):
         print(f'({index})正在下載: {title[index]}')
         link.click()
-        pyautogui.sleep(5)
+        pyautogui.sleep(2)
         # 移動到指定的座標
         #print(f'座標位置: {pyautogui.position()}')
     
@@ -39,16 +39,18 @@ def download_pdf(title ,driver):
         pyautogui.hotkey('alt', 's')
         pyautogui.moveTo(x=19, y=48, duration = 1.5)
         pyautogui.click()
-        pyautogui.sleep(20)
+        pyautogui.sleep(3)
 
 @app.route('/crawl', methods=['POST'])
 def crawl():
+    pyautogui.moveTo(x=512, y=1024, duration = 1.5)
+    pyautogui.click()
     keyword = request.json.get('keyword')
     print(keyword)
     driver = webdriver.Chrome()
     driver.maximize_window()
     driver.get("http://dl.acm.org/")
-    pyautogui.sleep(5)
+    pyautogui.sleep(2)
     # 定位搜尋框
     search_input = driver.find_element(By.NAME, "AllField")
     # 輸入想要查詢的關鍵字
@@ -78,12 +80,4 @@ def crawl():
 
 
 if __name__ == '__main__':
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('keyword', type=str, help='keyword for search')
-    args = parser.parse_args()
-    keyword = args.keyword
-
-    main(keyword)
-    """
     app.run('0.0.0.0', port=5001, debug=True)

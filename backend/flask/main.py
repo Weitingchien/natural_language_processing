@@ -1,12 +1,17 @@
 import os
+import random
+import string
 import nltk
 import spacy
+import shutil
+import requests
 from nltk.tokenize import word_tokenize
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify
 from transformers import BartTokenizer, BartForConditionalGeneration
 from PyPDF2 import PdfReader
 from flask_cors import CORS
-import requests
+
 
 
 app = Flask(__name__)
@@ -36,6 +41,13 @@ def summarize(text):
     return summary
 
 
+# 生成隨機字母數字後綴
+def generate_suffix():
+    suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=4))
+    return suffix
+
+
+
 def readPDFFile(fileName):
     reader = PdfReader(f'uploads/{fileName}')
     # printing number of pages in pdf file
@@ -61,15 +73,70 @@ def readPDFFile(fileName):
 
 @app.route('/search', methods=['POST'])
 def search():
+    path = 'C:\\Users\\LaB2146\\Downloads'
+    # 獲取當天日期
+    today = datetime.now().date()
     keyword = request.json['keyword']
-    print(keyword)
     if keyword:
         data = {'keyword': keyword}
         response = requests.post('http://127.0.0.1:5001/crawl', json=data)
         if response.status_code == 200:
             result = response.json()
-            print(result)
-            return jsonify({'message': 'success', 'data': result, 'status': 200})
+            print(f'result{result}')
+            pdf_files = result['data']
+            pdf_files = pdf_files[:3]
+            today_files = []
+            # 獲取路徑下所有文件
+            files = os.listdir(path)
+            # 過濾出當天的文件
+            for pdf_file in files:
+                file_path = os.path.join(path, pdf_file)
+                # 獲取文件的修改時間
+                modification_time = datetime.fromtimestamp(os.path.getmtime(file_path)).date()
+                if modification_time == today:
+                    today_files.append(pdf_file)
+            sorted_files = sorted(today_files, key=lambda x: os.path.getmtime(os.path.join(path, x)), reverse=False)
+            latest_files = sorted_files[:3]
+
+            # 建立上傳文件夾的路徑
+            uploads_path = os.path.join(os.path.dirname(__file__), 'uploads')
+            os.makedirs(uploads_path, exist_ok=True)
+            # 移除uploads資料夾，用於存放新的PDF檔案
+            shutil.rmtree(uploads_path)
+            os.makedirs(uploads_path, exist_ok=True)
+
+
+            for i, pdf_file in enumerate(latest_files):
+                new_file_name = f"{pdf_files[i]}.pdf"
+                old_file_path = os.path.join(path, pdf_file)
+                new_file_path = os.path.join(path, new_file_name)
+                new_file_path_in_uploads = os.path.join(uploads_path, new_file_name)
+
+                while os.path.exists(new_file_path):
+                    # 若新的檔案名稱已存在，則在檔名中添加後綴
+                    suffix = generate_suffix()
+                    new_file_name = f"{pdf_files[i]}_{suffix}.pdf"
+                    new_file_path = os.path.join(path, new_file_name)
+                    new_file_path_in_uploads = os.path.join(uploads_path, new_file_name)
+                    # 重命名文件
+                os.rename(old_file_path, new_file_path)
+                print(f"Renamed {pdf_file} to {new_file_name}")
+                shutil.move(new_file_path, new_file_path_in_uploads, copy_function=shutil.copy2)
+            """
+            for i, pdf_file in enumerate(latest_files):
+                new_file_name = f"{pdf_files[i]}.pdf"
+                old_file_path = os.path.join(path, pdf_file)
+                new_file_path = os.path.join(path, new_file_name)
+                new_file_path_in_uploads = os.path.join(uploads_path, new_file_name)
+                
+                if os.path.exists(new_file_path_in_uploads):
+                    # 覆蓋檔案(如果有相同的檔案名稱)
+                    os.remove(new_file_path_in_uploads)
+            """
+            
+
+
+            return jsonify({'message': 'success', 'data': pdf_files, 'status': 200})
         else:
             print('爬蟲請求失敗:', response.status_code)
             return jsonify({'message': 'error'})

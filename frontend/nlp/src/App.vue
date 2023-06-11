@@ -13,12 +13,14 @@ const loading = ref(false);
 
 const onClick = () => {
   loading.value = true;
+  overlay.value = true;
   axios
     .post('http://127.0.0.1:5000/search', { keyword: keyword.value })
     .then(res => {
       if (res.data.status == 200) {
         console.log(res.data);
         loading.value = false;
+        overlay.value = false;
       }
     })
     .catch(err => {
@@ -32,7 +34,7 @@ const handleFile = async event => {
   const formData = new FormData();
   formData.append('pdf_file', file);
   axios
-    .post('http://127.0.0.1:5001/upload', formData)
+    .post('http://127.0.0.1:5000/upload', formData)
     .then(res => {
       if (res.data.status == 200) {
         console.log(res.data);
