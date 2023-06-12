@@ -2,7 +2,6 @@
 import { ref } from 'vue';
 import axios from 'axios';
 import Table from './components/Table.vue';
-//import { mdiMagnify } from '@mdi/js';
 
 const title = ref('');
 const keyword = ref('');
@@ -21,6 +20,8 @@ const onClick = () => {
         console.log(res.data);
         loading.value = false;
         overlay.value = false;
+        extractedText.value = res.data.data;
+        title.value = res.data.file_name;
       }
     })
     .catch(err => {
@@ -49,25 +50,6 @@ const handleFile = async event => {
     });
   fileInput.value.reset();
 };
-
-/*
-    const title = ref('');
-    const error = ref('');
-    const isDisabled = ref(true);
-    //const body = JSON.stringify({ title: title.value });
-
-    const onSubmit = async () => {
-      await axios
-        .post('http://127.0.0.1:3000/', { title: title.value })
-        .then(res => {
-          console.log(res.data);
-        });
-    };
-    const validateInput = () => {
-      error.value = title.value === '' ? '請輸入論文標題' : '';
-      isDisabled.value = title.value === '' ? true : false;
-    };
-    */
 </script>
 
 <template>
@@ -88,7 +70,7 @@ const handleFile = async event => {
         ></v-progress-circular>
       </v-overlay>
       <div class="d-flex justify-center" fluid>
-        <v-row>
+        <v-row justify="center">
           <v-col cols="12">
             <v-card class="mx-auto" color="grey-lighten-3" max-width="400">
               <v-card-text>
@@ -106,22 +88,18 @@ const handleFile = async event => {
               </v-card-text>
             </v-card>
           </v-col>
-          <v-col cols="12">
-            <v-file-input
-              ref="fileInput"
-              class="input"
-              @change="handleFile"
-              label="File input"
-              variant="solo-filled"
-            ></v-file-input>
-            <!--
-          <v-textField
-            v-model="title"
-            @keyup="validateInput"
-            class="input"
-            autocomplete="off"
-          ></v-textField>
-          -->
+          <v-col cols="12" class="d-flex justify-center">
+            <v-card class="mx-auto">
+              <v-card-text>
+                <v-file-input
+                  ref="fileInput"
+                  class="input"
+                  @change="handleFile"
+                  label="File input"
+                  variant="solo-filled"
+                ></v-file-input>
+              </v-card-text>
+            </v-card>
           </v-col>
           <v-col cols="12">
             <Table :summary="extractedText" :title="title" />

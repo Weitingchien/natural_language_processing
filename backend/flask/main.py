@@ -38,6 +38,7 @@ def summarize(text):
     doc = nlp(summary)
     # 進行分詞
     summary = [token.text for token in doc]
+    summary = ' '.join(summary)
     return summary
 
 
@@ -49,10 +50,11 @@ def generate_suffix():
 
 
 def readPDFFile(fileName):
+    print(f'fileName: {fileName}')
+    temp = []
     reader = PdfReader(f'uploads/{fileName}')
     # printing number of pages in pdf file
     print(len(reader.pages))
-    temp = []
     # getting a specific page from the pdf file
     for i in range(len(reader.pages)):
         page = reader.pages[i]
@@ -67,47 +69,56 @@ def readPDFFile(fileName):
             segmented_tokens.append(segmented_token)
         segmented_text = ' '.join(segmented_tokens)
         temp.append(segmented_text)
-        print(temp)
+        #print(temp)
     return summarize(temp)
 
 
 @app.route('/search', methods=['POST'])
 def search():
     path = 'C:\\Users\\LaB2146\\Downloads'
+    pdf_data = []
+    pdf_files_name = []
     # 獲取當天日期
-    today = datetime.now().date()
+    #today = datetime.now().date()
+    current_datetime = datetime.now()
     keyword = request.json['keyword']
     if keyword:
         data = {'keyword': keyword}
         response = requests.post('http://127.0.0.1:5001/crawl', json=data)
         if response.status_code == 200:
+            today_files = []
             result = response.json()
-            print(f'result{result}')
+            #print(f'result{result}')
             pdf_files = result['data']
             pdf_files = pdf_files[:3]
-            today_files = []
             # 獲取路徑下所有文件
             files = os.listdir(path)
             # 過濾出當天的文件
+            
             for pdf_file in files:
                 file_path = os.path.join(path, pdf_file)
                 # 獲取文件的修改時間
-                modification_time = datetime.fromtimestamp(os.path.getmtime(file_path)).date()
-                if modification_time == today:
+                modification_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+                if modification_time.date() == current_datetime.date() and modification_time >= datetime.combine(current_datetime.date(), current_datetime.time()):
                     today_files.append(pdf_file)
+            
             sorted_files = sorted(today_files, key=lambda x: os.path.getmtime(os.path.join(path, x)), reverse=False)
             latest_files = sorted_files[:3]
+            #today_files = []
 
             # 建立上傳文件夾的路徑
             uploads_path = os.path.join(os.path.dirname(__file__), 'uploads')
+            print(f'upload_path: {uploads_path}')
             os.makedirs(uploads_path, exist_ok=True)
             # 移除uploads資料夾，用於存放新的PDF檔案
             shutil.rmtree(uploads_path)
             os.makedirs(uploads_path, exist_ok=True)
 
-
             for i, pdf_file in enumerate(latest_files):
-                new_file_name = f"{pdf_files[i]}.pdf"
+                original_file_name = pdf_files[i]
+                #new_file_name = f"{pdf_files[i]}.pdf"
+                new_file_name = pdf_files[i].replace(':', '_') + '.pdf'
+                print(f"Processing PDF file: {pdf_file} ({pdf_files[i]})")
                 old_file_path = os.path.join(path, pdf_file)
                 new_file_path = os.path.join(path, new_file_name)
                 new_file_path_in_uploads = os.path.join(uploads_path, new_file_name)
@@ -119,24 +130,19 @@ def search():
                     new_file_path = os.path.join(path, new_file_name)
                     new_file_path_in_uploads = os.path.join(uploads_path, new_file_name)
                     # 重命名文件
+                
                 os.rename(old_file_path, new_file_path)
                 print(f"Renamed {pdf_file} to {new_file_name}")
                 shutil.move(new_file_path, new_file_path_in_uploads, copy_function=shutil.copy2)
-            """
-            for i, pdf_file in enumerate(latest_files):
-                new_file_name = f"{pdf_files[i]}.pdf"
-                old_file_path = os.path.join(path, pdf_file)
-                new_file_path = os.path.join(path, new_file_name)
-                new_file_path_in_uploads = os.path.join(uploads_path, new_file_name)
-                
-                if os.path.exists(new_file_path_in_uploads):
-                    # 覆蓋檔案(如果有相同的檔案名稱)
-                    os.remove(new_file_path_in_uploads)
-            """
+                print(f"Moved PDF file to uploads folder: {new_file_path_in_uploads}")
+            uploaded_files = sorted(os.listdir(uploads_path))
+            for uploaded_file in uploaded_files:
+                summary = readPDFFile(uploaded_file)
+                pdf_data.append(summary)
+                pdf_files_name.append(uploaded_file)
+                print(f"Added to pdf_data: {uploaded_file}")
             
-
-
-            return jsonify({'message': 'success', 'data': pdf_files, 'status': 200})
+            return jsonify({'message': 'success', 'data': pdf_data, 'file_name': pdf_files_name, 'status': 200})
         else:
             print('爬蟲請求失敗:', response.status_code)
             return jsonify({'message': 'error'})
@@ -151,6 +157,7 @@ def upload():
     if file:
         file.save('uploads/' + file.filename)
         data = readPDFFile(file.filename)
+        print(f'data: {data}')
         return jsonify({'message': 'success', 'data': data, 'status': 200, 'file_name': file.filename})
     else:
         return jsonify({'message': 'error'})
