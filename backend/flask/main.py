@@ -6,8 +6,8 @@ import spacy
 import shutil
 import requests
 from nltk.tokenize import word_tokenize
-from datetime import datetime, timedelta
-from flask import Flask, render_template, request, jsonify
+from datetime import datetime
+from flask import Flask, request, jsonify
 from transformers import BartTokenizer, BartForConditionalGeneration
 from PyPDF2 import PdfReader
 from flask_cors import CORS
@@ -21,24 +21,32 @@ nltk.download('punkt')
 nlp = spacy.load("en_core_web_sm")
 
 def summarize(text):
+    print(f'text: {text}')
     model_name = 'facebook/bart-large-cnn'
     tokenizer = BartTokenizer.from_pretrained(model_name)
     print(f'max_length: {tokenizer.model_max_length}')
+    # BartForConditionalGeneration可以用於生成摘要
+    # from_pretrained:載入預訓練模型
     model = BartForConditionalGeneration.from_pretrained(model_name)
+    # 將list內的元素以空格連接起來，變成一個字串
     combined_string = ' '.join(text)
     text = combined_string
-    # truncation: 
-    encoded_input = tokenizer(text, truncation=True, padding='longest', max_length=1024, return_tensors='pt')
-    # num_beams: 控制解碼時beam search的寬度，影響生成文本的多樣性和品質(範圍通常是1~10)。
-    # early_stopping: 提前停止有助於提高解碼期間的效率。
+    # print(f'text: {text}')
+    # truncation: 表示在使用BART tokenizer對文本進行Encode時，如果文本長度超過max_length，則自動進行截斷
+    # 如果 padding='longest': 確保所有文本具有相同的長度，方便模型並行計算
+    # return_tensors='pt': 返回PyTorch tensors，可以方便地用於BART模型的輸入，而不需要額外的轉換或處理
+    encoded_input = tokenizer(text, truncation=True, padding='do_not_pad', max_length=1024, return_tensors='pt')
+    print(f'encoded_input {encoded_input}')
+    # encoded_input['input_ids']: 經過BART tokenizer處理後的文本，轉換成數字序列，每個token都有一個對應的ID
+    # beam search: 生成文本的一種算法，較大的值增加生成文本的多樣性，但會降低生成文本的品質(範圍通常是1~10)
+    # max_length=500: 生成的摘要最大長度為500
+    # early_stopping=True: 當達到最大長度限制時提前停止生成摘要
     summary_ids = model.generate(encoded_input['input_ids'], num_beams=4, max_length=500, early_stopping=True)
+    print(f'summary_ids: {summary_ids}')
+    # summary_ids.squeeze(): 用於刪除在張量中任何多餘的維度
+    # skip_special_tokens=True: 讓Decoder忽略特殊token，只返回具有意義的token，來生成最終的摘要
     summary = tokenizer.decode(summary_ids.squeeze(), skip_special_tokens=True)
     print(type(summary))
-    # 創建分詞器實體
-    doc = nlp(summary)
-    # 進行分詞
-    summary = [token.text for token in doc]
-    summary = ' '.join(summary)
     return summary
 
 
@@ -53,23 +61,24 @@ def readPDFFile(fileName):
     print(f'fileName: {fileName}')
     temp = []
     reader = PdfReader(f'uploads/{fileName}')
-    # printing number of pages in pdf file
+
     print(len(reader.pages))
-    # getting a specific page from the pdf file
+
     for i in range(len(reader.pages)):
         page = reader.pages[i]
-        # extracting text from page
+        # 從頁面提取文字
         text = page.extract_text()
-        # Word tokenization
+        # word_tokenize(text): 將text切分成單詞
         tokens = word_tokenize(text)
         segmented_tokens = []
         for token in tokens:
             doc = nlp(token)
+            # 進行更細緻的處理，並且將結果存在segmented_tokens
             segmented_token = ' '.join([token.text for token in doc])
             segmented_tokens.append(segmented_token)
         segmented_text = ' '.join(segmented_tokens)
         temp.append(segmented_text)
-        #print(temp)
+        # print(f'temp: {temp}')
     return summarize(temp)
 
 
@@ -104,7 +113,6 @@ def search():
             
             sorted_files = sorted(today_files, key=lambda x: os.path.getmtime(os.path.join(path, x)), reverse=False)
             latest_files = sorted_files[:3]
-            #today_files = []
 
             # 建立上傳文件夾的路徑
             uploads_path = os.path.join(os.path.dirname(__file__), 'uploads')
@@ -115,9 +123,8 @@ def search():
             os.makedirs(uploads_path, exist_ok=True)
 
             for i, pdf_file in enumerate(latest_files):
-                original_file_name = pdf_files[i]
-                #new_file_name = f"{pdf_files[i]}.pdf"
-                new_file_name = pdf_files[i].replace(':', '_') + '.pdf'
+                new_file_name = pdf_files[i].replace(':', '_').replace('/', '_') + '.pdf'
+                #new_file_name = pdf_files[i].replace(':', '_') + '.pdf'
                 print(f"Processing PDF file: {pdf_file} ({pdf_files[i]})")
                 old_file_path = os.path.join(path, pdf_file)
                 new_file_path = os.path.join(path, new_file_name)

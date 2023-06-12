@@ -55,7 +55,7 @@ const handleFile = async event => {
 <template>
   <v-app>
     <v-app-bar app dark>
-      <h1>論文摘要系統</h1>
+      <h1>論文摘要</h1>
     </v-app-bar>
     <v-main>
       <v-overlay
@@ -79,7 +79,7 @@ const handleFile = async event => {
                   :loading="loading"
                   density="compact"
                   variant="solo"
-                  label="Search templates"
+                  label="在此輸入關鍵字"
                   append-inner-icon="mdi-magnify"
                   single-line
                   hide-details
